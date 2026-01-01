@@ -5,6 +5,53 @@ api:
     connect-ms: 5000
     read-ms: 15000
 
+catalog:
+  product-type:
+    grocery-id: UHJvZHVjdFR5cGU6MQ==
+  attributes:
+    product-min-amount-id: QXR0cmlidXRlOjQ=
+    product-weighted-id: QXR0cmlidXRlOjU=
+    boycott-id: QXR0cmlidXRlOjEx
+    box-size-id: QXR0cmlidXRlOjEz
+    min-order-quantity-id: QXR0cmlidXRlOjE0
+    provider-id: QXR0cmlidXRlOjY=
+    providers-id: QXR0cmlidXRlOjE1
+    min-stock-quantity-id: QXR0cmlidXRlOjE3
+  collections:
+    ramallah-new-arrivals-id: Q29sbGVjdGlvbjo0
+    arraba-new-arrivals-id: Q29sbGVjdGlvbjo1
+    ramadan-id: Q29sbGVjdGlvbjo2
+    eid-cake-id: Q29sbGVjdGlvbjo3
+    jening-offers-id: Q29sbGVjdGlvbjox
+    ramallah-offers-id: Q29sbGVjdGlvbjoy
+    zain-bakery-id: Q29sbGVjdGlvbjoxMA==
+  categories:
+    mix-id: Q2F0ZWdvcnk6MTc=
+    fruit-id: Q2F0ZWdvcnk6MzE=
+    moona-id: Q2F0ZWdvcnk6MTM==
+    rice-id: Q2F0ZWdvcnk6MTI=
+    meat-id: Q2F0ZWdvcnk6Mw==
+    oil-id: Q2F0ZWdvcnk6MTk==
+    salads-id: Q2F0ZWdvcnk6MzQ==
+    milk-id: Q2F0ZWdvcnk6Mg==
+    bread-id: Q2F0ZWdvcnk6NA==
+    sweets-id: Q2F0ZWdvcnk6Ng==
+    clean-id: Q2F0ZWdvcnk6MTQ=
+    drinks-id: Q2F0ZWdvcnk6MTE=
+    animals-id: Q2F0ZWdvcnk6MzU=
+    personal-care-id: Q2F0ZWdvcnk6Nw==
+    beans-id: Q2F0ZWdvcnk6OA==
+    frozen-id: Q2F0ZWdvcnk6MjE=
+    chips-id: Q2F0ZWdvcnk6MTg=
+    sauce-id: Q2F0ZWdvcnk6MTE0
+    bhar-id: Q2F0ZWdvcnk6MzI=
+    tea-id: Q2F0ZWdvcnk6MTU=
+    healthy-id: Q2F0ZWdvcnk6MzY=
+    papers-id: Q2F0ZWdvcnk6MjA=
+    children-id: Q2F0ZWdvcnk6MTA=
+    water-id: Q2F0ZWdvcnk6NQ==
+    plastic-id: Q2F0ZWdvcnk6MjI=
+
 # File handling defaults; adjust per task
 files:
   image-default-content-type: image/png

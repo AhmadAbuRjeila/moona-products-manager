@@ -24,7 +24,7 @@
    - Remove Maven-specific plugins; ensure Java toolchain stays at 21 or adjust if backward compatibility needed.
    - Drop Vert.x entirely; no temporary client dependency.
 
-3) **Configuration Migration**
+3) **Configuration Migration** *(DONE: catalog/API properties scaffolded in application.yml)*
    - Convert constants to `application.yml` keys (API base URL, tokens, channel slug, paths, timeouts, pagination size, collection/category IDs).
    - Create `@ConfigurationProperties` class to supply these values; add profile overrides for dev/stage/prod.
    - Externalize secrets (env vars or config server); avoid committing creds.
