@@ -33,7 +33,7 @@
    - Create Spring `@SpringBootApplication` runners/`@Service` equivalents for each CLI/task (ProductsExport, Update, UploadImages, ErpReportScraper, Add/RemoveToCollection, ReadFolderFiles).
    - Replace Vert.x `WebClient` calls with Spring WebClient/RestTemplate; map async handling (Futures/Promises) to `Mono`/`Flux` or `CompletableFuture`.
    - Replace Vert.x JSON usage with Jackson (ObjectMapper); reuse DTOs after adjusting annotations if needed.
-   - Move utility classes into `src/main/java/com/moona/productsmanager/.../utils`; refactor for Spring beans where stateful (ApiClient), keep static helpers where appropriate.
+   - Move utility classes into `src/main/java/com/moona/productsmanager/.../utils`; refactor for Spring beans where stateful (ApiClient), keep static helpers where appropriate. **(PARTIAL: ExcelReader/Writer, JsonParser, Helper, FileUtils ported)**
    - Introduce scheduling for recurring tasks; for one-off exports/imports, expose `CommandLineRunner` beans with task selection via args or Spring Shell.
    - Handle file IO paths via properties; decide on working directories for Excel import/export.
 
@@ -56,7 +56,7 @@
 ## Suggested Work Sequence (Incremental)
 1. Align Gradle deps and add config scaffolding (`application.yml`, properties class). **(DONE: deps updated)**
 2. Port `ApiClient` to Spring HTTP client; ensure auth and headers configurable. **(DONE: WebClient config + ApiProperties + ApiClient service)**
-3. Port DTOs/utilities (ExcelReader/Writer, JsonParser) and validate via unit tests.
+3. Port DTOs/utilities (ExcelReader/Writer, JsonParser) and validate via unit tests. **(DONE)**
 4. Port `ProductsExport` as a `CommandLineRunner`; verify output matches legacy.
 5. Port `ProductsUpdate` and `ProductsUpdateRank` runners; confirm update semantics and error handling.
 6. Port `ProductsImages` and `ProductsImageUpdate` (image upload/update flows); validate file handling and retries.
