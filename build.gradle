@@ -25,6 +25,7 @@ dependencies {
     implementation 'commons-io:commons-io:2.14.0'
     implementation 'org.apache.httpcomponents:httpclient:4.5.13'
     implementation 'org.apache.httpcomponents:httpmime:4.5.13'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
