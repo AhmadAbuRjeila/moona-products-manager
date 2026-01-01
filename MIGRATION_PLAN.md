@@ -22,7 +22,7 @@
 2) **Build & Dependency Alignment**
    - Add to `build.gradle`: `spring-boot-starter-web` (or webflux), `spring-boot-configuration-processor`, Apache POI, commons-io, Apache httpclient/httpmime, and optional `reactor-netty` if using WebClient.
    - Remove Maven-specific plugins; ensure Java toolchain stays at 21 or adjust if backward compatibility needed.
-   - If keeping Vert.x temporarily, add Vert.x client dependency and shade exclusion strategy; plan to remove after port.
+   - Drop Vert.x entirely; no temporary client dependency.
 
 3) **Configuration Migration**
    - Convert constants to `application.yml` keys (API base URL, tokens, channel slug, paths, timeouts, pagination size, collection/category IDs).
@@ -38,6 +38,7 @@
    - Handle file IO paths via properties; decide on working directories for Excel import/export.
 
 5) **Resources & Data Files**
+   - Keep `resources/products/*.xlsx` intact; treat them as-is for imports (do not reshape/rename during migration).
    - Decide which Excel/SQL files stay in repo vs. move to `docs/examples/` or external storage; update `.gitignore` to avoid large/binary churn.
    - Migrate SQL scripts under `src/main/resources/scripts/` if still used; add README notes for DB usage.
 
@@ -56,9 +57,15 @@
 1. Align Gradle deps and add config scaffolding (`application.yml`, properties class).
 2. Port `ApiClient` to Spring HTTP client; ensure auth and headers configurable.
 3. Port DTOs/utilities (ExcelReader/Writer, JsonParser) and validate via unit tests.
-4. Port a single task (e.g., `ProductsExport`) as a `CommandLineRunner`; verify output matches legacy.
-5. Port remaining tasks iteratively; add scheduling/CLI switches as needed.
-6. Clean up resources, docs, and remove Vert.x remnants; finalize cutover checklist.
+4. Port `ProductsExport` as a `CommandLineRunner`; verify output matches legacy.
+5. Port `ProductsUpdate` and `ProductsUpdateRank` runners; confirm update semantics and error handling.
+6. Port `ProductsImages` and `ProductsImageUpdate` (image upload/update flows); validate file handling and retries.
+7. Port `UploadImages` for bulk operations; ensure path configuration is externalized.
+8. Port `AddToCollection` and `RemoveFromCollection`; validate collection IDs and responses.
+9. Port `ReadFolderFiles` utility; verify filesystem expectations and filtering.
+10. Port `ErpReportScraper` and related tasks; align scheduling if needed.
+11. Add scheduling/CLI switches as needed; wire args parsing or Spring Shell.
+12. Clean up resources, docs, and remove Vert.x remnants; finalize cutover checklist.
 
 ## Commands (after porting)
 ```bash
@@ -68,4 +75,3 @@
 # run a specific task implemented as CommandLineRunner (example)
 ./gradlew bootRun --args="productsExport --channel ramallah"
 ```
-
