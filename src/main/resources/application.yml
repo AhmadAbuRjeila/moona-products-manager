@@ -1,0 +1,11 @@
+api:
+  base-url: https://api.moona.app/graphql/
+  token: ${MOONA_API_TOKEN:change-me}
+  timeout:
+    connect-ms: 5000
+    read-ms: 15000
+
+# File handling defaults; adjust per task
+files:
+  image-default-content-type: image/png
+
