@@ -54,7 +54,7 @@
    - Remove temporary Vert.x deps once parity confirmed; archive or delete `deprecated-products-manager/` after final sign-off.
 
 ## Suggested Work Sequence (Incremental)
-1. Align Gradle deps and add config scaffolding (`application.yml`, properties class).
+1. Align Gradle deps and add config scaffolding (`application.yml`, properties class). **(DONE: deps updated)**
 2. Port `ApiClient` to Spring HTTP client; ensure auth and headers configurable.
 3. Port DTOs/utilities (ExcelReader/Writer, JsonParser) and validate via unit tests.
 4. Port `ProductsExport` as a `CommandLineRunner`; verify output matches legacy.
