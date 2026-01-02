@@ -1,6 +1,6 @@
 api:
   base-url: https://api.moona.app/graphql/
-  token: ${MOONA_API_TOKEN:change-me}
+  token: T3iGJ6HbG1ITTGcQfplZggoCfc2vqP
   timeout:
     connect-ms: 5000
     read-ms: 15000
@@ -51,6 +51,10 @@ catalog:
     children-id: Q2F0ZWdvcnk6MTA=
     water-id: Q2F0ZWdvcnk6NQ==
     plastic-id: Q2F0ZWdvcnk6MjI=
+
+export:
+  channel: ramallah
+  page-size: 100
 
 # File handling defaults; adjust per task
 files:

@@ -57,7 +57,7 @@
 1. Align Gradle deps and add config scaffolding (`application.yml`, properties class). **(DONE: deps updated)**
 2. Port `ApiClient` to Spring HTTP client; ensure auth and headers configurable. **(DONE: WebClient config + ApiProperties + ApiClient service)**
 3. Port DTOs/utilities (ExcelReader/Writer, JsonParser) and validate via unit tests. **(DONE)**
-4. Port `ProductsExport` as a `CommandLineRunner`; verify output matches legacy.
+4. Port `ProductsExport` as a `CommandLineRunner`; verify output matches legacy. **(DONE: ProductsExportService + runner)**
 5. Port `ProductsUpdate` and `ProductsUpdateRank` runners; confirm update semantics and error handling.
 6. Port `ProductsImages` and `ProductsImageUpdate` (image upload/update flows); validate file handling and retries.
 7. Port `UploadImages` for bulk operations; ensure path configuration is externalized.
