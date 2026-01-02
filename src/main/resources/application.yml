@@ -56,6 +56,23 @@ export:
   channel: ramallah
   page-size: 100
 
+erp:
+  base-url: https://lomi.erpmax.me
+  login-path: /api/method/login
+  report-path: /api/method/frappe.desk.query_report.run
+  username: مونة
+  password: mona@12345
+  default-channel-id: Q2hhbm5lbDo1
+  default-warehouse-id: V2FyZWhvdXNlOjVjMzNjZWVkLTE5MDgtNGJhMS1iNTczLWI2MGUyZjgyZjIwMg==
+  default-category-id: Q2F0ZWdvcnk6MTQw
+  default-published: true
+  default-track-inventory: true
+  default-weighted: "false"
+  default-min-amount: "10"
+  connect-timeout-ms: 15000
+  read-timeout-ms: 30000
+  max-in-memory-bytes: 2097152
+
 # File handling defaults; adjust per task
 files:
   image-default-content-type: image/png
