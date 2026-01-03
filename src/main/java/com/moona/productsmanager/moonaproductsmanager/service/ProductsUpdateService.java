@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class ProductsUpdateService {
@@ -40,17 +41,21 @@ public class ProductsUpdateService {
             if (products == null || products.isEmpty()) {
                 return Mono.empty();
             }
-            List<Product> slice = products.stream().limit(100).toList();
-            log.info("Upserting {} products (first 100 of {}) with concurrency=5", slice.size(), products.size());
+            int safeStart = 0;
+            int safeLimit = 1000;
+            List<Product> slice = products.stream().skip(safeStart).limit(safeLimit).toList();
+            AtomicInteger processed = new AtomicInteger();
+            int total = slice.size();
+            log.info("Upserting {} products (start={} limit={} of {}) with concurrency=5", total, safeStart, safeLimit, products.size());
             return Flux.fromIterable(slice)
-                .flatMap(p -> upsertSingle(p, mode), 5)
+                .flatMap(p -> upsertSingle(p, mode, processed, total), 5)
                 .then();
         });
     }
 
     public record VariantInfo(String variantId, String productId) {}
 
-    private Mono<Void> upsertSingle(Product product, UpdateMode mode) {
+    private Mono<Void> upsertSingle(Product product, UpdateMode mode, AtomicInteger processed, int total) {
         log.info("Upsert starting for sku={} name={}", product.getSku(), product.getName());
         return findVariantBySku(product.getSku())
             .doOnNext(info -> log.info("Existing variant found for sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId()))
@@ -59,6 +64,12 @@ public class ProductsUpdateService {
                 log.info("No existing variant for sku={}, create path is currently disabled; skipping", product.getSku());
                 return Mono.empty();
             }))
+            .doFinally(sig -> {
+                int done = processed.incrementAndGet();
+                if (done % 5 == 0 || done == total) {
+                    log.info("ERP upsert progress: {}/{}", done, total);
+                }
+            })
             .onErrorResume(ex -> {
                 log.error("Upsert failed for sku={}", product.getSku(), ex);
                 return Mono.empty();
@@ -111,9 +122,7 @@ public class ProductsUpdateService {
         variables.put("id", productId);
         variables.put("input", input);
 
-        return apiClient.mutation(mutation, variables)
-            .doOnSuccess(body -> log.info("productUpdate sku={} productId={} mode={} response={}", product.getSku(), productId, mode, body))
-            .then();
+        return apiClient.mutation(mutation, variables).then();
     }
 
     private Mono<Void> updateProductChannelListing(Product product, String productId) {
@@ -129,9 +138,7 @@ public class ProductsUpdateService {
         variables.put("id", productId);
         variables.put("input", helper.buildProductChannelListingUpdateInputObject(product));
 
-        return apiClient.mutation(mutation, variables)
-            .doOnSuccess(body -> log.info("productChannelListingUpdate sku={} productId={} response={}", product.getSku(), productId, body))
-            .then();
+        return apiClient.mutation(mutation, variables).then();
     }
 
     private Mono<Void> updateVariantChannelListing(Product product, String variantId) {
@@ -146,9 +153,7 @@ public class ProductsUpdateService {
         variables.put("id", variantId);
         variables.put("input", helper.buildProductVariantChannelListingAddInput(product));
 
-        return apiClient.mutation(mutation, variables)
-            .doOnSuccess(body -> log.info("productVariantChannelListingUpdate sku={} variant={} response={}", product.getSku(), variantId, body))
-            .then();
+        return apiClient.mutation(mutation, variables).then();
     }
 
     private Mono<Void> updateVariantStocks(Product product, String variantId) {
@@ -163,9 +168,7 @@ public class ProductsUpdateService {
         variables.put("variantId", variantId);
         variables.put("stocks", helper.buildStocksInput(product));
 
-        return apiClient.mutation(mutation, variables)
-            .doOnSuccess(body -> log.info("productVariantStocksUpdate sku={} variant={} response={}", product.getSku(), variantId, body))
-            .then();
+        return apiClient.mutation(mutation, variables).then();
     }
 
     private Mono<Void> createNew(Product product) {
