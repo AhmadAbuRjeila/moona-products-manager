@@ -45,7 +45,7 @@ public class ErpIngestService {
                 if (dryRun) {
                     return Mono.just("Dry run: mapped " + products.size() + " products");
                 }
-                return productsUpdateService.upsertProducts(products)
+                return productsUpdateService.upsertProducts(products, ProductsUpdateService.UpdateMode.ERP_SKIP_NAME_CATEGORY)
                     .thenReturn("Ingested " + products.size() + " products");
             });
     }

@@ -7,6 +7,7 @@ import com.moona.productsmanager.moonaproductsmanager.util.Helper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -27,25 +28,33 @@ public class ProductsUpdateService {
         this.objectMapper = objectMapper;
     }
 
+    public enum UpdateMode { FULL, ERP_SKIP_NAME_CATEGORY }
+
     public Mono<Void> upsertProducts(List<Product> products) {
+        return upsertProducts(products, UpdateMode.FULL);
+    }
+
+    public Mono<Void> upsertProducts(List<Product> products, UpdateMode mode) {
         log.info("upsertProducts invoked with {} items", products == null ? 0 : products.size());
         return Mono.defer(() -> {
             if (products == null || products.isEmpty()) {
                 return Mono.empty();
             }
-            List<Product> slice = products.stream().limit(2).toList();
-            log.info("Upserting {} products (first 5 of {})", slice.size(), products.size());
-            return Mono.when(slice.stream().map(this::upsertSingle).toList());
+            List<Product> slice = products.stream().limit(100).toList();
+            log.info("Upserting {} products (first 100 of {}) with concurrency=5", slice.size(), products.size());
+            return Flux.fromIterable(slice)
+                .flatMap(p -> upsertSingle(p, mode), 5)
+                .then();
         });
     }
 
     public record VariantInfo(String variantId, String productId) {}
 
-    private Mono<Void> upsertSingle(Product product) {
+    private Mono<Void> upsertSingle(Product product, UpdateMode mode) {
         log.info("Upsert starting for sku={} name={}", product.getSku(), product.getName());
         return findVariantBySku(product.getSku())
             .doOnNext(info -> log.info("Existing variant found for sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId()))
-            .flatMap(info -> updateExisting(product, info))
+            .flatMap(info -> updateExisting(product, info, mode))
             .switchIfEmpty(Mono.defer(() -> {
                 log.info("No existing variant for sku={}, create path is currently disabled; skipping", product.getSku());
                 return Mono.empty();
@@ -79,25 +88,31 @@ public class ProductsUpdateService {
             });
     }
 
-    private Mono<Void> updateExisting(Product product, VariantInfo info) {
+    private Mono<Void> updateExisting(Product product, VariantInfo info, UpdateMode mode) {
         String resolvedProductId = info.productId() != null ? info.productId() : product.getId();
-        return updateProduct(product, resolvedProductId)
+        return updateProduct(product, resolvedProductId, mode)
             .then(updateProductChannelListing(product, resolvedProductId))
             .then(updateVariantChannelListing(product, info.variantId()))
             .then(updateVariantStocks(product, info.variantId()));
     }
 
-    private Mono<Void> updateProduct(Product product, String productId) {
+    private Mono<Void> updateProduct(Product product, String productId, UpdateMode mode) {
         String mutation = "mutation ProductUpdate($id: ID!, $input: ProductInput!) {" +
             "  productUpdate(id: $id, input: $input) { product { id } errors { field message } }" +
             "}";
 
+        Map<String, Object> input = helper.buildProductInputObject(product);
+        if (mode == UpdateMode.ERP_SKIP_NAME_CATEGORY) {
+            input.remove("name");
+            input.remove("category");
+        }
+
         Map<String, Object> variables = new HashMap<>();
         variables.put("id", productId);
-        variables.put("input", helper.buildProductInputObject(product));
+        variables.put("input", input);
 
         return apiClient.mutation(mutation, variables)
-            .doOnSuccess(body -> log.info("productUpdate sku={} productId={} response={}", product.getSku(), productId, body))
+            .doOnSuccess(body -> log.info("productUpdate sku={} productId={} mode={} response={}", product.getSku(), productId, mode, body))
             .then();
     }
 
