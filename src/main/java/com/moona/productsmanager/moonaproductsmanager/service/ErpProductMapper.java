@@ -153,8 +153,6 @@ public class ErpProductMapper {
         Integer qty = getIntegerAt(array, 7);
         String category = getStringAt(array, 3); // optional
 
-        log.info("ERP array row raw={} parsed name={} barcode={} price={} qty={} category={}", array.toString(), name, barcode, price, qty, category);
-
         if (qty != null && qty < 5) {
             log.info("Skipping (qty<5 array row): {} | sku={} | qty={}", name, barcode, qty);
             return null;

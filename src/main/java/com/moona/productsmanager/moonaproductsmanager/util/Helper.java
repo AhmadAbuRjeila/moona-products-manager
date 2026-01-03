@@ -78,9 +78,19 @@ public class Helper {
     }
 
     private Map<String, Object> attributeWithValues(String id, Object values) {
+        List<Object> rawValues;
+        if (values instanceof List<?>) {
+            rawValues = (List<Object>) values;
+        } else {
+            rawValues = List.of(values);
+        }
+        List<String> stringValues = rawValues.stream()
+            .map(v -> v == null ? "" : v.toString())
+            .toList();
+
         Map<String, Object> attribute = new HashMap<>();
         attribute.put("id", id);
-        attribute.put("values", values);
+        attribute.put("values", stringValues);
         return attribute;
     }
 
@@ -97,6 +107,14 @@ public class Helper {
         Map<String, Object> productChannelListingUpdateInput = new HashMap<>();
         productChannelListingUpdateInput.put("updateChannels", List.of(productChannelListingAddInput));
         return productChannelListingUpdateInput;
+    }
+
+    public Map<String, Object> buildProductVariantUpdateInput(Product product) {
+        Map<String, Object> productVariantUpdateInput = new HashMap<>();
+        productVariantUpdateInput.put("sku", product.getSku());
+        productVariantUpdateInput.put("trackInventory", product.getTrackInventory());
+        productVariantUpdateInput.put("attributes", new ArrayList<>()); // keep empty list
+        return productVariantUpdateInput;
     }
 
     public Map<String, Object> buildProductVariantCreateInput(Product product) {
@@ -191,4 +209,3 @@ public class Helper {
             "}";
     }
 }
-
