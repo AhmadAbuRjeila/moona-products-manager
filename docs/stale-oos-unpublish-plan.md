@@ -2,14 +2,14 @@
 
 ## Progress Snapshot
 - [x] Define scope, rules, and execution mode (manual CLI only; channel = `exportProperties.channel`; staleness = updatedAt <= now-14d; OOS = availableQuantity <= 0; skip already-unpublished or trackInventory=false)
-- [ ] Wire data path (export filter, mapper updatedAt) and job orchestration
+- [x] Wire data path (export filter, mapper updatedAt) and job orchestration
 - [ ] Expose CLI runner and defaults
 - [ ] Add logging/metrics and safeguards
 - [ ] Add tests and runbook steps; verify via dry-run
 
 ## Tasks (ordered)
 1) **Model & Export Support**
-   - [ ] Ensure `Product` + export mapper capture `updatedAt` from API responses.
+   - [x] Ensure `Product` + export mapper capture `updatedAt` from API responses.
    - [ ] Extend `ProductsExportService` to accept `updatedBefore` (ISO) and apply `updatedAt: { lte: <value> }` while honoring configured channel.
    - [ ] Add default `updatedBefore = now - 14d` computation helper.
 

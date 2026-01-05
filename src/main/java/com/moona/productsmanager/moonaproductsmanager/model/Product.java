@@ -32,6 +32,7 @@ public class Product {
     private List<String> providers = new ArrayList<>();
     private Integer minStockQuantity;
     private OffsetDateTime created;
+    private OffsetDateTime updatedAt;
 
     public String getId() {
         return id;
@@ -247,6 +248,14 @@ public class Product {
 
     public void setCreated(OffsetDateTime created) {
         this.created = created;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(OffsetDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public void addProvider(String providerToAdd) {

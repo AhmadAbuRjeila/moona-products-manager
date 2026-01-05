@@ -27,6 +27,12 @@ public class ProductMapper {
                 product.setCreated(OffsetDateTime.parse(created.asText()));
             } catch (Exception ignored) { }
         }
+        JsonNode updatedAt = node.path("updatedAt");
+        if (updatedAt.isTextual()) {
+            try {
+                product.setUpdatedAt(OffsetDateTime.parse(updatedAt.asText()));
+            } catch (Exception ignored) { }
+        }
 
         JsonNode category = node.path("category");
         if (!category.isMissingNode()) {

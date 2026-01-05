@@ -142,6 +142,7 @@ public class ProductsExportService {
             "          id\n" +
             "          name\n" +
             "          created\n" +
+            "          updatedAt\n" +
             "          thumbnail{\n" +
             "            url\n" +
             "          }\n" +
