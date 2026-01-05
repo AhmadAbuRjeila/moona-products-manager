@@ -43,7 +43,11 @@ public class ProductsExportService {
     }
 
     public Mono<List<Product>> fetchAllProducts(String createdAfterIso) {
-        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso);
+        return fetchAllProducts(createdAfterIso, null);
+    }
+
+    public Mono<List<Product>> fetchAllProducts(String createdAfterIso, String updatedBeforeIso) {
+        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso);
     }
 
     public Mono<String> exportProductsToFile() {
@@ -51,8 +55,12 @@ public class ProductsExportService {
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso) {
-        log.info("Starting products export (channel={}, pageSize={}, createdAfter={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso);
-        return fetchAllProducts(createdAfterIso)
+        return exportProductsToFile(createdAfterIso, null);
+    }
+
+    public Mono<String> exportProductsToFile(String createdAfterIso, String updatedBeforeIso) {
+        log.info("Starting products export (channel={}, pageSize={}, createdAfter={}, updatedBefore={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso, updatedBeforeIso);
+        return fetchAllProducts(createdAfterIso, updatedBeforeIso)
             .flatMap(products -> {
                 try {
                     excelWriter.exportProducts(products);
@@ -66,12 +74,16 @@ public class ProductsExportService {
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor) {
-        return fetchPage(accumulator, pageSize, afterCursor, null);
+        return fetchPage(accumulator, pageSize, afterCursor, null, null);
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso) {
-        log.info("Fetching products page (after={}, accumulated={}, createdAfter={})", afterCursor, accumulator.size(), createdAfterIso);
-        return fetchProducts(pageSize, afterCursor)
+        return fetchPage(accumulator, pageSize, afterCursor, createdAfterIso, null);
+    }
+
+    private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso, String updatedBeforeIso) {
+        log.info("Fetching products page (after={}, accumulated={}, createdAfter={}, updatedBefore={})", afterCursor, accumulator.size(), createdAfterIso, updatedBeforeIso);
+        return fetchProducts(pageSize, afterCursor, updatedBeforeIso)
             .flatMap(responseJson -> {
                 JsonNode root;
                 try {
@@ -95,7 +107,7 @@ public class ProductsExportService {
                 boolean hasNextPage = productsNode.path("pageInfo").path("hasNextPage").asBoolean(false);
                 String endCursor = productsNode.path("pageInfo").path("endCursor").asText(null);
                 if (hasNextPage && endCursor != null) {
-                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso);
+                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso, updatedBeforeIso);
                 }
                 log.info("No more pages; total products collected={}.", accumulator.size());
                 return Mono.just(accumulator);
@@ -118,11 +130,7 @@ public class ProductsExportService {
         }
     }
 
-    private Mono<String> fetchProducts(int pageSize, String after) {
-        return fetchProducts(pageSize, after, null);
-    }
-
-    private Mono<String> fetchProducts(int pageSize, String after, String createdAfterIso) {
+    private Mono<String> fetchProducts(int pageSize, String after, String updatedBeforeIso) {
         String productQuery = buildProductQuery();
         Map<String, Object> variables = new HashMap<>();
         variables.put("first", pageSize);
@@ -130,6 +138,11 @@ public class ProductsExportService {
         variables.put("channel", exportProperties.getChannel());
         Map<String, Object> filter = new HashMap<>();
         filter.put("isPublished", true);
+        if (updatedBeforeIso != null && !updatedBeforeIso.isBlank()) {
+            Map<String, Object> updatedAtFilter = new HashMap<>();
+            updatedAtFilter.put("lte", updatedBeforeIso);
+            filter.put("updatedAt", updatedAtFilter);
+        }
         variables.put("filter", filter);
         return apiClient.mutation(productQuery, variables);
     }

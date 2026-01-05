@@ -10,7 +10,7 @@
 ## Tasks (ordered)
 1) **Model & Export Support**
    - [x] Ensure `Product` + export mapper capture `updatedAt` from API responses.
-   - [ ] Extend `ProductsExportService` to accept `updatedBefore` (ISO) and apply `updatedAt: { lte: <value> }` while honoring configured channel.
+   - [x] Extend `ProductsExportService` to accept `updatedBefore` (ISO) and apply `updatedAt: { lte: <value> }` while honoring configured channel.
    - [ ] Add default `updatedBefore = now - 14d` computation helper.
 
 2) **Job Orchestration** (`StaleOosUnpublishJob`)
