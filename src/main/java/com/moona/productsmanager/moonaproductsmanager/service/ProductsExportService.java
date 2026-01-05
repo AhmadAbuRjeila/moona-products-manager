@@ -50,6 +50,10 @@ public class ProductsExportService {
         return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso);
     }
 
+    public String defaultUpdatedBeforeIso(int stalenessDays) {
+        return OffsetDateTime.now(java.time.ZoneOffset.UTC).minusDays(stalenessDays).toString();
+    }
+
     public Mono<String> exportProductsToFile() {
         return exportProductsToFile(null);
     }

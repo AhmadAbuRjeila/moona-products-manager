@@ -11,7 +11,7 @@
 1) **Model & Export Support**
    - [x] Ensure `Product` + export mapper capture `updatedAt` from API responses.
    - [x] Extend `ProductsExportService` to accept `updatedBefore` (ISO) and apply `updatedAt: { lte: <value> }` while honoring configured channel.
-   - [ ] Add default `updatedBefore = now - 14d` computation helper.
+   - [x] Add default `updatedBefore = now - 14d` computation helper.
 
 2) **Job Orchestration** (`StaleOosUnpublishJob`)
    - [ ] Call export with `updatedBefore` (default or overridden) and page size from config.
