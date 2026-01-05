@@ -35,7 +35,7 @@ public class StaleOosUnpublishJob {
             exportProperties.getChannel(), cutoff, effectivePageSize, dryRun);
 
         return productsExportService.fetchAllProducts(null, cutoff)
-            .map(products -> summarizeAndFilter(products))
+            .map(this::summarizeAndFilter)
             .flatMap(summary -> {
                 log.info("staleOosUnpublish.summary fetched={} unpublishedAlready={} candidates={} dryRun={}",
                     summary.totalFetched, summary.alreadyUnpublished, summary.candidates.size(), dryRun);
@@ -47,7 +47,10 @@ public class StaleOosUnpublishJob {
                     .toList();
                 return productsUpdateService.upsertProducts(toUpdate, ProductsUpdateService.UpdateMode.FULL)
                     .then(Mono.fromSupplier(() -> "Unpublished " + toUpdate.size() + " products (fetched=" + summary.totalFetched + ")"))
-                    .doOnSuccess(msg -> log.info("staleOosUnpublish.updated totalFetched={} updated={}", summary.totalFetched, toUpdate.size()))
+                    .doOnSuccess(msg -> {
+                        List<String> skus = toUpdate.stream().map(Product::getSku).toList();
+                        log.info("staleOosUnpublish.unpublished skus={} count={}", skus, skus.size());
+                    })
                     .doOnError(ex -> log.error("staleOosUnpublish failed after fetched={} candidates={}", summary.totalFetched, summary.candidates.size(), ex));
             });
     }

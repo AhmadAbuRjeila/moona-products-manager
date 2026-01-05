@@ -67,12 +67,14 @@ public class ProductsUpdateService {
                     VariantInfo info = signal.get();
                     log.info("Existing variant found for sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId());
                     return updateExisting(product, info, mode)
-                        .then(Mono.fromRunnable(updated::incrementAndGet));
+                        .then(Mono.fromRunnable(updated::incrementAndGet))
+                        .then(Mono.fromRunnable(() -> log.info("Upserted existing sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId())));
                 }
                 if (signal.isOnComplete()) {
                     log.info("No existing variant for sku={}, creating new", product.getSku());
                     return createNew(product)
-                        .then(Mono.fromRunnable(created::incrementAndGet));
+                        .then(Mono.fromRunnable(created::incrementAndGet))
+                        .then(Mono.fromRunnable(() -> log.info("Created new sku={} name={}", product.getSku(), product.getName())));
                 }
                 if (signal.isOnError()) {
                     return Mono.error(signal.getThrowable());
