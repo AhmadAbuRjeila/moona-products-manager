@@ -5,6 +5,8 @@ import com.moona.productsmanager.moonaproductsmanager.config.CatalogProperties;
 import com.moona.productsmanager.moonaproductsmanager.model.Product;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
+
 @Component
 public class ProductMapper {
 
@@ -19,6 +21,12 @@ public class ProductMapper {
         product.setId(node.path("id").asText(null));
         product.setName(node.path("name").asText(null));
         product.setRating(node.path("rating").isNumber() ? node.path("rating").asDouble() : null);
+        JsonNode created = node.path("created");
+        if (created.isTextual()) {
+            try {
+                product.setCreated(OffsetDateTime.parse(created.asText()));
+            } catch (Exception ignored) { }
+        }
 
         JsonNode category = node.path("category");
         if (!category.isMissingNode()) {
@@ -114,4 +122,3 @@ public class ProductMapper {
         return product;
     }
 }
-

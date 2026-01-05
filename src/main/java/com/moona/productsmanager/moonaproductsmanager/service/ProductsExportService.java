@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,12 +39,20 @@ public class ProductsExportService {
     }
 
     public Mono<List<Product>> fetchAllProducts() {
-        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null);
+        return fetchAllProducts(null);
+    }
+
+    public Mono<List<Product>> fetchAllProducts(String createdAfterIso) {
+        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso);
     }
 
     public Mono<String> exportProductsToFile() {
-        log.info("Starting products export (channel={}, pageSize={})", exportProperties.getChannel(), exportProperties.getPageSize());
-        return fetchAllProducts()
+        return exportProductsToFile(null);
+    }
+
+    public Mono<String> exportProductsToFile(String createdAfterIso) {
+        log.info("Starting products export (channel={}, pageSize={}, createdAfter={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso);
+        return fetchAllProducts(createdAfterIso)
             .flatMap(products -> {
                 try {
                     excelWriter.exportProducts(products);
@@ -57,7 +66,11 @@ public class ProductsExportService {
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor) {
-        log.info("Fetching products page (after={}, accumulated={})", afterCursor, accumulator.size());
+        return fetchPage(accumulator, pageSize, afterCursor, null);
+    }
+
+    private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso) {
+        log.info("Fetching products page (after={}, accumulated={}, createdAfter={})", afterCursor, accumulator.size(), createdAfterIso);
         return fetchProducts(pageSize, afterCursor)
             .flatMap(responseJson -> {
                 JsonNode root;
@@ -82,14 +95,34 @@ public class ProductsExportService {
                 boolean hasNextPage = productsNode.path("pageInfo").path("hasNextPage").asBoolean(false);
                 String endCursor = productsNode.path("pageInfo").path("endCursor").asText(null);
                 if (hasNextPage && endCursor != null) {
-                    return fetchPage(accumulator, pageSize, endCursor);
+                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso);
                 }
                 log.info("No more pages; total products collected={}.", accumulator.size());
                 return Mono.just(accumulator);
-            });
+            })
+            .map(products -> filterByCreatedAfter(products, createdAfterIso));
+    }
+
+    private List<Product> filterByCreatedAfter(List<Product> products, String createdAfterIso) {
+        if (createdAfterIso == null || createdAfterIso.isBlank()) {
+            return products;
+        }
+        try {
+            OffsetDateTime threshold = OffsetDateTime.parse(createdAfterIso);
+            return products.stream()
+                .filter(p -> p.getCreated() != null && !p.getCreated().isBefore(threshold))
+                .toList();
+        } catch (Exception ex) {
+            log.warn("Invalid createdAfterIso '{}', returning unfiltered list", createdAfterIso);
+            return products;
+        }
     }
 
     private Mono<String> fetchProducts(int pageSize, String after) {
+        return fetchProducts(pageSize, after, null);
+    }
+
+    private Mono<String> fetchProducts(int pageSize, String after, String createdAfterIso) {
         String productQuery = buildProductQuery();
         Map<String, Object> variables = new HashMap<>();
         variables.put("first", pageSize);
@@ -108,6 +141,7 @@ public class ProductsExportService {
             "        node {\n" +
             "          id\n" +
             "          name\n" +
+            "          created\n" +
             "          thumbnail{\n" +
             "            url\n" +
             "          }\n" +

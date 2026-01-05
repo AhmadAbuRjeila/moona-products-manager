@@ -1,5 +1,6 @@
 package com.moona.productsmanager.moonaproductsmanager.model;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,7 @@ public class Product {
     private String provider;
     private List<String> providers = new ArrayList<>();
     private Integer minStockQuantity;
+    private OffsetDateTime created;
 
     public String getId() {
         return id;
@@ -239,6 +241,14 @@ public class Product {
         this.minStockQuantity = minStockQuantity;
     }
 
+    public OffsetDateTime getCreated() {
+        return created;
+    }
+
+    public void setCreated(OffsetDateTime created) {
+        this.created = created;
+    }
+
     public void addProvider(String providerToAdd) {
         if (providerToAdd == null || providerToAdd.isBlank()) {
             return;
@@ -251,4 +261,3 @@ public class Product {
         }
     }
 }
-

@@ -63,7 +63,7 @@
 7. Port `UploadImages` for bulk operations; ensure path configuration is externalized.
 8. Port `AddToCollection` and `RemoveFromCollection`; validate collection IDs and responses.
 9. Port `ReadFolderFiles` utility; verify filesystem expectations and filtering.
-10. Port `ErpReportScraper` and related tasks; align scheduling if needed. **(IN PROGRESS: ErpProperties, ErpReportClient, ErpProductMapper, ErpIngestService, ErpReportRunner)**
+10. Port `ErpReportScraper` and related tasks; align scheduling if needed. **(DONE: ErpProperties, ErpReportClient, ErpProductMapper, ErpIngestService, ErpReportRunner)**
 11. Add scheduling/CLI switches as needed; wire args parsing or Spring Shell.
 12. Clean up resources, docs, and remove Vert.x remnants; finalize cutover checklist.
 
