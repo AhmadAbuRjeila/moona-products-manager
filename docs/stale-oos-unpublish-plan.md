@@ -27,7 +27,7 @@
 
 4) **Config & Observability**
    - [ ] New properties `stale-oos-unpublish.page-size`, `stale-oos-unpublish.limit`, `stale-oos-unpublish.default-staleness-days` (14), optional backoff/retry knobs; env overrides allowed.
-   - [ ] Structured logs per batch: exported, filtered, skipped-unpublished, updated; error summary.
+   - [x] Structured logs per batch: exported, filtered, skipped-unpublished, updated; error summary.
    - [ ] Optional Micrometer counters (e.g., `stale_oos_unpublish.exported`, `filtered`, `updated`, `skipped_unpublished`, `errors`).
 
 5) **Safety & Edge Cases**
