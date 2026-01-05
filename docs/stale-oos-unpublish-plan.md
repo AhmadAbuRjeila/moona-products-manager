@@ -21,9 +21,9 @@
    - [x] Support ~~`--limit` to cap processed items per run~~ (removed; processing all candidates).
 
 3) **CLI Entry Point**
-   - [ ] Add `CommandLineRunner` task key `staleOosUnpublish`.
-   - [ ] Flags: `--dry-run`, `--updated-before <iso>`, `--page-size <n>`, `--limit <n>`.
-   - [ ] Exit non-zero on failures; print summary counts.
+   - [x] Add `CommandLineRunner` task key `staleOosUnpublish`.
+   - [x] Flags: `--dry-run`, `--updated-before <iso>`, `--page-size <n>`.
+   - [x] Exit non-zero on failures; print summary counts.
 
 4) **Config & Observability**
    - [ ] New properties `stale-oos-unpublish.page-size`, `stale-oos-unpublish.limit`, `stale-oos-unpublish.default-staleness-days` (14), optional backoff/retry knobs; env overrides allowed.
