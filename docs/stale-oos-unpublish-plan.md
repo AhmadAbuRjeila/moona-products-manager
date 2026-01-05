@@ -14,11 +14,11 @@
    - [x] Add default `updatedBefore = now - 14d` computation helper.
 
 2) **Job Orchestration** (`StaleOosUnpublishJob`)
-   - [ ] Call export with `updatedBefore` (default or overridden) and page size from config.
-   - [ ] Filter in-memory: `availableQuantity <= 0`, `trackInventory == true`, `published == true`.
-   - [ ] Map updates using existing update DTOs: set `published=false` only (no other fields touched).
-   - [ ] Batch flag-only updates through `ProductsUpdateService` with existing retry/backoff.
-   - [ ] Support `--limit` to cap processed items per run.
+   - [x] Call export with `updatedBefore` (default or overridden) and page size from config.
+   - [x] Filter in-memory: `availableQuantity <= 0`, `trackInventory == true`, `published == true`.
+   - [x] Map updates using existing update DTOs: set `published=false` only (no other fields touched).
+   - [x] Batch flag-only updates through `ProductsUpdateService` with existing retry/backoff.
+   - [x] Support ~~`--limit` to cap processed items per run~~ (removed; processing all candidates).
 
 3) **CLI Entry Point**
    - [ ] Add `CommandLineRunner` task key `staleOosUnpublish`.
