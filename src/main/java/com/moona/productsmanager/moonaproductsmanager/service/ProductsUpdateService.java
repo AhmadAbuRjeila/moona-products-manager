@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,7 @@ public class ProductsUpdateService {
             int total = slice.size();
             log.info("Upserting {} products (start={} limit={} of {}) with concurrency=5", total, safeStart, safeLimit, products.size());
             return Flux.fromIterable(slice)
+                .delayElements(Duration.ofMillis(50))
                 .flatMap(p -> upsertSingle(p, mode, processed, total, updated, created), 1)
                 .then()
                 .doFinally(sig -> log.info("ERP upsert finished: total={} updated={} created={}", total, updated.get(), created.get()));
