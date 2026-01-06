@@ -27,32 +27,35 @@ public class StaleOosUnpublishJob {
 
     public Mono<String> run(String updatedBeforeIso, int pageSize, boolean dryRun) {
         String cutoff = updatedBeforeIso != null && !updatedBeforeIso.isBlank()
-            ? updatedBeforeIso
-            : productsExportService.defaultUpdatedBeforeIso(14);
+                ? updatedBeforeIso
+                : productsExportService.defaultUpdatedBeforeIso(14);
         int effectivePageSize = pageSize > 0 ? pageSize : exportProperties.getPageSize();
 
         log.info("Stale OOS unpublish starting (channel={}, cutoff={}, pageSize={}, dryRun={})",
-            exportProperties.getChannel(), cutoff, effectivePageSize, dryRun);
+                exportProperties.getChannel(), cutoff, effectivePageSize, dryRun);
 
         return productsExportService.fetchAllProducts(null, cutoff)
-            .map(this::summarizeAndFilter)
-            .flatMap(summary -> {
-                log.info("staleOosUnpublish.summary fetched={} unpublishedAlready={} candidates={} dryRun={}",
-                    summary.totalFetched, summary.alreadyUnpublished, summary.candidates.size(), dryRun);
-                if (dryRun || summary.candidates.isEmpty()) {
-                    return Mono.just("Dry-run: would unpublish " + summary.candidates.size() + " products (fetched=" + summary.totalFetched + ")");
-                }
-                List<Product> toUpdate = summary.candidates.stream()
-                    .peek(p -> p.setPublished(false))
-                    .toList();
-                return productsUpdateService.upsertProducts(toUpdate, ProductsUpdateService.UpdateMode.FULL)
-                    .then(Mono.fromSupplier(() -> "Unpublished " + toUpdate.size() + " products (fetched=" + summary.totalFetched + ")"))
-                    .doOnSuccess(msg -> {
-                        List<String> skus = toUpdate.stream().map(Product::getSku).toList();
-                        log.info("staleOosUnpublish.unpublished skus={} count={}", skus, skus.size());
-                    })
-                    .doOnError(ex -> log.error("staleOosUnpublish failed after fetched={} candidates={}", summary.totalFetched, summary.candidates.size(), ex));
-            });
+                .map(this::summarizeAndFilter)
+                .flatMap(summary -> {
+                    log.info("staleOosUnpublish.summary fetched={} unpublishedAlready={} candidates={} dryRun={}",
+                            summary.totalFetched, summary.alreadyUnpublished, summary.candidates.size(), dryRun);
+                    if (dryRun || summary.candidates.isEmpty()) {
+                        return Mono.just("Dry-run: would unpublish " + summary.candidates.size() + " products (fetched=" + summary.totalFetched + ")");
+                    }
+                    List<Product> toUpdate = summary.candidates.stream()
+                            .peek(p -> {
+                                p.setPublished(false);
+                                p.setChannelId("Q2hhbm5lbDo1"); // Ramallah
+                            })
+                            .toList();
+                    return productsUpdateService.upsertProducts(toUpdate, ProductsUpdateService.UpdateMode.FULL)
+                            .then(Mono.fromSupplier(() -> "Unpublished " + toUpdate.size() + " products (fetched=" + summary.totalFetched + ")"))
+                            .doOnSuccess(msg -> {
+                                List<String> skus = toUpdate.stream().map(Product::getSku).toList();
+                                log.info("staleOosUnpublish.unpublished skus={} count={}", skus, skus.size());
+                            })
+                            .doOnError(ex -> log.error("staleOosUnpublish failed after fetched={} candidates={}", summary.totalFetched, summary.candidates.size(), ex));
+                });
     }
 
     private Summary summarizeAndFilter(List<Product> products) {
@@ -67,10 +70,11 @@ public class StaleOosUnpublishJob {
             return List.of();
         }
         return products.stream()
-            .filter(p -> p.getAvailableQuantity() != null && p.getAvailableQuantity() <= 0)
-            .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-            .toList();
+                .filter(p -> p.getAvailableQuantity() != null && p.getAvailableQuantity() <= 0)
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
+                .toList();
     }
 
-    private record Summary(int totalFetched, int alreadyUnpublished, List<Product> candidates) { }
+    private record Summary(int totalFetched, int alreadyUnpublished, List<Product> candidates) {
+    }
 }

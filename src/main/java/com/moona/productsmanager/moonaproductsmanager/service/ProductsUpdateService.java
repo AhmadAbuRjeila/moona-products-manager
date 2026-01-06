@@ -42,7 +42,7 @@ public class ProductsUpdateService {
                 return Mono.empty();
             }
             int safeStart = 0;
-            int safeLimit = 1000;
+            int safeLimit = products.size();
             List<Product> slice = products.stream().skip(safeStart).limit(safeLimit).toList();
             AtomicInteger processed = new AtomicInteger();
             AtomicInteger updated = new AtomicInteger();
