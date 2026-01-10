@@ -13,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 @Component
 public class ErpProductMapper {
@@ -47,8 +46,8 @@ public class ErpProductMapper {
                 findValue(row, "Qty")
             ));
             if (qty != null && qty < 5) {
-                log.info("Skipping (qty<5): {} | sku={} | qty={}", coerceString(findValue(row, "item name")), coerceString(findValue(row, "barcode")), qty);
-                continue;
+                log.info("Adjusting qty<5 to zero: {} | sku={} | qty={}", coerceString(findValue(row, "item name")), coerceString(findValue(row, "barcode")), qty);
+                qty = 0;
             }
 
             Double price = coerceDouble(findValue(row, "standard selling price"));
@@ -154,8 +153,8 @@ public class ErpProductMapper {
         String category = getStringAt(array, 3); // optional
 
         if (qty != null && qty < 5) {
-            log.info("Skipping (qty<5 array row): {} | sku={} | qty={}", name, barcode, qty);
-            return null;
+            log.info("Adjusting qty<5 to zero array row: {} | sku={} | qty={}", name, barcode, qty);
+            qty = 0;
         }
         if (price == null) {
             log.info("Skipping (no price array row): {} | sku={}", name, barcode);

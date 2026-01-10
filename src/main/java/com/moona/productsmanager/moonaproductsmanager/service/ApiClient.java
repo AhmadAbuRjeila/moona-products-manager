@@ -7,6 +7,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Duration;
 import java.util.AbstractMap;
@@ -41,15 +42,41 @@ public class ApiClient {
                     String body = entry.getValue();
                     if (status >= 400) {
                         log.error("GraphQL error status={} body={}", status, body);
-                        return Mono.error(new IllegalStateException("GraphQL request failed status=" + status));
+                        return Mono.error(new GraphqlRequestException(status));
                     }
                     log.debug("GraphQL success status={} body={}", status, body);
                     return Mono.just(body);
                 })
                 .timeout(Duration.ofSeconds(30))
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
-                        .filter(ex -> ex instanceof ReadTimeoutException
-                                || ex instanceof TimeoutException
-                                || (ex instanceof WebClientRequestException && ex.getCause() instanceof ReadTimeoutException)));
+                .retryWhen(retrySpec());
+    }
+
+    private RetryBackoffSpec retrySpec() {
+        return Retry.backoff(5, Duration.ofSeconds(2))
+                .maxBackoff(Duration.ofSeconds(20))
+                .jitter(0.5)
+                .filter(this::isRetriable)
+                .doBeforeRetry(signal -> log.warn(
+                        "Retrying GraphQL call attempt={}",
+                        signal.totalRetries() + 1
+                ));
+    }
+
+    private boolean isRetriable(Throwable ex) {
+        if (ex instanceof GraphqlRequestException gre) {
+            return gre.status >= 500; // retry only server-side GraphQL errors
+        }
+        return ex instanceof ReadTimeoutException
+                || ex instanceof TimeoutException
+                || (ex instanceof WebClientRequestException && ex.getCause() instanceof ReadTimeoutException);
+    }
+
+    private static final class GraphqlRequestException extends IllegalStateException {
+        private final int status;
+
+        GraphqlRequestException(int status) {
+            super("GraphQL request failed status=" + status);
+            this.status = status;
+        }
     }
 }
