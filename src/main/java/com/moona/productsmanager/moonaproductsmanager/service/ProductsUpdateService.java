@@ -30,7 +30,7 @@ public class ProductsUpdateService {
         this.objectMapper = objectMapper;
     }
 
-    public enum UpdateMode { FULL, ERP_SKIP_NAME_CATEGORY }
+    public enum UpdateMode { FULL, SKIP_PRODUCT_MASTER_DATA }
 
     public Mono<Void> upsertProducts(List<Product> products) {
         return upsertProducts(products, UpdateMode.FULL);
@@ -117,22 +117,24 @@ public class ProductsUpdateService {
 
     private Mono<Void> updateExisting(Product product, VariantInfo info, UpdateMode mode) {
         String resolvedProductId = info.productId() != null ? info.productId() : product.getId();
-        return updateProduct(product, resolvedProductId, mode)
+        Mono<Void> chain;
+        if (mode == UpdateMode.SKIP_PRODUCT_MASTER_DATA) {
+            chain = Mono.empty();
+        } else {
+            chain = updateProduct(product, resolvedProductId);
+        }
+        return chain
             .then(updateProductChannelListing(product, resolvedProductId))
             .then(updateVariantChannelListing(product, info.variantId()))
             .then(updateVariantStocks(product, info.variantId()));
     }
 
-    private Mono<Void> updateProduct(Product product, String productId, UpdateMode mode) {
+    private Mono<Void> updateProduct(Product product, String productId) {
         String mutation = "mutation ProductUpdate($id: ID!, $input: ProductInput!) {" +
             "  productUpdate(id: $id, input: $input) { product { id } errors { field message } }" +
             "}";
 
         Map<String, Object> input = helper.buildProductInputObject(product);
-        if (mode == UpdateMode.ERP_SKIP_NAME_CATEGORY) {
-            input.remove("name");
-            input.remove("category");
-        }
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("id", productId);
