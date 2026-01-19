@@ -48,7 +48,11 @@ public class ProductsExportService {
     }
 
     public Mono<List<Product>> fetchAllProducts(String createdAfterIso, String updatedBeforeIso) {
-        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso);
+        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso, null);
+    }
+
+    public Mono<List<Product>> fetchAllProducts(String createdAfterIso, String updatedBeforeIso, String categoryId) {
+        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso, categoryId);
     }
 
     public String defaultUpdatedBeforeIso(int stalenessDays) {
@@ -60,23 +64,31 @@ public class ProductsExportService {
     }
 
     public Mono<String> exportProductsToFile() {
-        return exportProductsToFile(null);
+        return exportProductsToFile(null, null, null);
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso) {
         if (createdAfterIso == null || createdAfterIso.isBlank()) {
             createdAfterIso = defaultCreatedAfterIso();
         }
-        return exportProductsToFile(createdAfterIso, null);
+        return exportProductsToFile(createdAfterIso, null, null);
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso, String updatedBeforeIso) {
-        log.info("Starting products export (channel={}, pageSize={}, createdAfter={}, updatedBefore={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso, updatedBeforeIso);
-        return fetchAllProducts(createdAfterIso, updatedBeforeIso)
+        return exportProductsToFile(createdAfterIso, updatedBeforeIso, null);
+    }
+
+    public Mono<String> exportProductsToFileByCategory(String categoryId) {
+        return exportProductsToFile(null, null, categoryId);
+    }
+
+    public Mono<String> exportProductsToFile(String createdAfterIso, String updatedBeforeIso, String categoryId) {
+        log.info("Starting products export (channel={}, pageSize={}, createdAfter={}, updatedBefore={}, categoryId={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso, updatedBeforeIso, categoryId);
+        return fetchAllProducts(createdAfterIso, updatedBeforeIso, categoryId)
             .flatMap(products -> {
                 try {
                     excelWriter.exportProducts(products);
-                    log.info("Export finished, wrote {} products", products.size());
+                    log.info("Export finished, wrote {} products{}", products.size(), categoryId == null || categoryId.isBlank() ? "" : " (filtered)");
                     return Mono.just("Exported " + products.size() + " products");
                 } catch (IOException e) {
                     log.error("Failed to write export file", e);
@@ -86,16 +98,20 @@ public class ProductsExportService {
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor) {
-        return fetchPage(accumulator, pageSize, afterCursor, null, null);
+        return fetchPage(accumulator, pageSize, afterCursor, null, null, null);
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso) {
-        return fetchPage(accumulator, pageSize, afterCursor, createdAfterIso, null);
+        return fetchPage(accumulator, pageSize, afterCursor, createdAfterIso, null, null);
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso, String updatedBeforeIso) {
-        log.info("Fetching products page (after={}, accumulated={}, createdAfter={}, updatedBefore={})", afterCursor, accumulator.size(), createdAfterIso, updatedBeforeIso);
-        return fetchProducts(pageSize, afterCursor, updatedBeforeIso)
+        return fetchPage(accumulator, pageSize, afterCursor, createdAfterIso, updatedBeforeIso, null);
+    }
+
+    private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso, String updatedBeforeIso, String categoryId) {
+        log.info("Fetching products page (after={}, accumulated={}, createdAfter={}, updatedBefore={}, categoryId={})", afterCursor, accumulator.size(), createdAfterIso, updatedBeforeIso, categoryId);
+        return fetchProducts(pageSize, afterCursor, updatedBeforeIso, categoryId)
             .flatMap(responseJson -> {
                 JsonNode root;
                 try {
@@ -119,7 +135,7 @@ public class ProductsExportService {
                 boolean hasNextPage = productsNode.path("pageInfo").path("hasNextPage").asBoolean(false);
                 String endCursor = productsNode.path("pageInfo").path("endCursor").asText(null);
                 if (hasNextPage && endCursor != null) {
-                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso, updatedBeforeIso);
+                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso, updatedBeforeIso, categoryId);
                 }
                 log.info("No more pages; total products collected={}.", accumulator.size());
                 return Mono.just(accumulator);
@@ -143,6 +159,10 @@ public class ProductsExportService {
     }
 
     private Mono<String> fetchProducts(int pageSize, String after, String updatedBeforeIso) {
+        return fetchProducts(pageSize, after, updatedBeforeIso, null);
+    }
+
+    private Mono<String> fetchProducts(int pageSize, String after, String updatedBeforeIso, String categoryId) {
         String productQuery = buildProductQuery();
         Map<String, Object> variables = new HashMap<>();
         variables.put("first", pageSize);
@@ -154,6 +174,9 @@ public class ProductsExportService {
             Map<String, Object> updatedAtFilter = new HashMap<>();
             updatedAtFilter.put("lte", updatedBeforeIso);
             filter.put("updatedAt", updatedAtFilter);
+        }
+        if (categoryId != null && !categoryId.isBlank()) {
+            filter.put("categories", List.of(categoryId));
         }
         variables.put("filter", filter);
         return apiClient.mutation(productQuery, variables);
