@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,11 +55,18 @@ public class ProductsExportService {
         return OffsetDateTime.now(java.time.ZoneOffset.UTC).minusDays(stalenessDays).toString();
     }
 
+    public String defaultCreatedAfterIso() {
+        return OffsetDateTime.of(2026, 1, 7, 0, 0, 0, 0, ZoneOffset.UTC).toString();
+    }
+
     public Mono<String> exportProductsToFile() {
         return exportProductsToFile(null);
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso) {
+        if (createdAfterIso == null || createdAfterIso.isBlank()) {
+            createdAfterIso = defaultCreatedAfterIso();
+        }
         return exportProductsToFile(createdAfterIso, null);
     }
 
