@@ -51,7 +51,7 @@ public class ProductsUpdateService {
             int total = slice.size();
             log.info("Upserting {} products (start={} limit={} of {}) with concurrency=5", total, safeStart, safeLimit, products.size());
             return Flux.fromIterable(slice)
-                .flatMap(p -> upsertSingle(p, mode, processed, total, updated, created), 1)
+                .flatMap(p -> upsertSingle(p, mode, processed, total, updated, created), 3)
                 .then()
                 .doFinally(sig -> log.info("ERP upsert finished: total={} updated={} created={}", total, updated.get(), created.get()));
         });
