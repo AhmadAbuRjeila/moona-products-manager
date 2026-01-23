@@ -44,15 +44,23 @@ public class ProductsExportService {
     }
 
     public Mono<List<Product>> fetchAllProducts(String createdAfterIso) {
-        return fetchAllProducts(createdAfterIso, null);
+        return fetchAllProducts(createdAfterIso, null, null);
     }
 
     public Mono<List<Product>> fetchAllProducts(String createdAfterIso, String updatedBeforeIso) {
-        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso, null);
+        return fetchAllProducts(createdAfterIso, updatedBeforeIso, null);
+    }
+
+    public Mono<List<Product>> fetchAllProductsByCategory(String categoryId) {
+        return fetchAllProducts(null, null, categoryId);
     }
 
     public Mono<List<Product>> fetchAllProducts(String createdAfterIso, String updatedBeforeIso, String categoryId) {
-        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso, categoryId);
+        return fetchAllProducts(createdAfterIso, updatedBeforeIso, categoryId, null);
+    }
+
+    public Mono<List<Product>> fetchAllProducts(String createdAfterIso, String updatedBeforeIso, String categoryId, Boolean published) {
+        return fetchPage(new ArrayList<>(), exportProperties.getPageSize(), null, createdAfterIso, updatedBeforeIso, categoryId, published);
     }
 
     public String defaultUpdatedBeforeIso(int stalenessDays) {
@@ -64,31 +72,32 @@ public class ProductsExportService {
     }
 
     public Mono<String> exportProductsToFile() {
-        return exportProductsToFile(null, null, null);
+        return exportProductsToFile(null, null, null, null);
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso) {
-        if (createdAfterIso == null || createdAfterIso.isBlank()) {
-            createdAfterIso = defaultCreatedAfterIso();
-        }
-        return exportProductsToFile(createdAfterIso, null, null);
+        return exportProductsToFile(createdAfterIso, null, null, null);
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso, String updatedBeforeIso) {
-        return exportProductsToFile(createdAfterIso, updatedBeforeIso, null);
+        return exportProductsToFile(createdAfterIso, updatedBeforeIso, null, null);
     }
 
     public Mono<String> exportProductsToFileByCategory(String categoryId) {
-        return exportProductsToFile(null, null, categoryId);
+        return exportProductsToFile(null, null, categoryId, null);
     }
 
     public Mono<String> exportProductsToFile(String createdAfterIso, String updatedBeforeIso, String categoryId) {
-        log.info("Starting products export (channel={}, pageSize={}, createdAfter={}, updatedBefore={}, categoryId={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso, updatedBeforeIso, categoryId);
-        return fetchAllProducts(createdAfterIso, updatedBeforeIso, categoryId)
+        return exportProductsToFile(createdAfterIso, updatedBeforeIso, categoryId, null);
+    }
+
+    public Mono<String> exportProductsToFile(String createdAfterIso, String updatedBeforeIso, String categoryId, Boolean published) {
+        log.info("Starting products export (channel={}, pageSize={}, createdAfter={}, updatedBefore={}, categoryId={}, published={})", exportProperties.getChannel(), exportProperties.getPageSize(), createdAfterIso, updatedBeforeIso, categoryId, published);
+        return fetchAllProducts(createdAfterIso, updatedBeforeIso, categoryId, published)
             .flatMap(products -> {
                 try {
                     excelWriter.exportProducts(products);
-                    log.info("Export finished, wrote {} products{}", products.size(), categoryId == null || categoryId.isBlank() ? "" : " (filtered)");
+                    log.info("Export finished, wrote {} products{}{}", products.size(), categoryId == null || categoryId.isBlank() ? "" : " (filtered)", published == null ? "" : " (published=" + published + ")");
                     return Mono.just("Exported " + products.size() + " products");
                 } catch (IOException e) {
                     log.error("Failed to write export file", e);
@@ -110,8 +119,12 @@ public class ProductsExportService {
     }
 
     private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso, String updatedBeforeIso, String categoryId) {
-        log.info("Fetching products page (after={}, accumulated={}, createdAfter={}, updatedBefore={}, categoryId={})", afterCursor, accumulator.size(), createdAfterIso, updatedBeforeIso, categoryId);
-        return fetchProducts(pageSize, afterCursor, updatedBeforeIso, categoryId)
+        return fetchPage(accumulator, pageSize, afterCursor, createdAfterIso, updatedBeforeIso, categoryId, null);
+    }
+
+    private Mono<List<Product>> fetchPage(List<Product> accumulator, int pageSize, String afterCursor, String createdAfterIso, String updatedBeforeIso, String categoryId, Boolean published) {
+        log.info("Fetching products page (after={}, accumulated={}, createdAfter={}, updatedBefore={}, categoryId={}, published={})", afterCursor, accumulator.size(), createdAfterIso, updatedBeforeIso, categoryId, published);
+        return fetchProducts(pageSize, afterCursor, updatedBeforeIso, categoryId, published)
             .flatMap(responseJson -> {
                 JsonNode root;
                 try {
@@ -135,7 +148,7 @@ public class ProductsExportService {
                 boolean hasNextPage = productsNode.path("pageInfo").path("hasNextPage").asBoolean(false);
                 String endCursor = productsNode.path("pageInfo").path("endCursor").asText(null);
                 if (hasNextPage && endCursor != null) {
-                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso, updatedBeforeIso, categoryId);
+                    return fetchPage(accumulator, pageSize, endCursor, createdAfterIso, updatedBeforeIso, categoryId, published);
                 }
                 log.info("No more pages; total products collected={}.", accumulator.size());
                 return Mono.just(accumulator);
@@ -159,17 +172,23 @@ public class ProductsExportService {
     }
 
     private Mono<String> fetchProducts(int pageSize, String after, String updatedBeforeIso) {
-        return fetchProducts(pageSize, after, updatedBeforeIso, null);
+        return fetchProducts(pageSize, after, updatedBeforeIso, null, null);
     }
 
     private Mono<String> fetchProducts(int pageSize, String after, String updatedBeforeIso, String categoryId) {
+        return fetchProducts(pageSize, after, updatedBeforeIso, categoryId, null);
+    }
+
+    private Mono<String> fetchProducts(int pageSize, String after, String updatedBeforeIso, String categoryId, Boolean published) {
         String productQuery = buildProductQuery();
         Map<String, Object> variables = new HashMap<>();
         variables.put("first", pageSize);
         variables.put("after", after);
         variables.put("channel", exportProperties.getChannel());
         Map<String, Object> filter = new HashMap<>();
-        filter.put("isPublished", true);
+        if (published != null) {
+            filter.put("isPublished", published);
+        }
         if (updatedBeforeIso != null && !updatedBeforeIso.isBlank()) {
             Map<String, Object> updatedAtFilter = new HashMap<>();
             updatedAtFilter.put("lte", updatedBeforeIso);

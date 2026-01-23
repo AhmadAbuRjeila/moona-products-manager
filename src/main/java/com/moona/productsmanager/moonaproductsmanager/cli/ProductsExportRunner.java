@@ -7,6 +7,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class ProductsExportRunner implements CommandLineRunner {
@@ -23,12 +25,20 @@ public class ProductsExportRunner implements CommandLineRunner {
         boolean triggered = false;
         int exitCode = 0;
         String categoryId = null;
-        for (String arg : args) {
+        Boolean published = null;
+        String createdAfter = null;
+        String updatedBefore = null;
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
             if (arg.startsWith("productsExport")) {
                 triggered = true;
-                categoryId = parseCategoryId(arg, args);
+                Map<String, String> options = parseOptions(args, i, arg);
+                categoryId = options.get("category");
+                published = parseBoolean(options.get("published"));
+                createdAfter = options.get("createdAfter");
+                updatedBefore = options.get("updatedBefore");
                 try {
-                    productsExportService.exportProductsToFile(null, null, categoryId)
+                    productsExportService.exportProductsToFile(createdAfter, updatedBefore, categoryId, published)
                         .doOnSuccess(msg -> log.info(msg))
                         .block();
                 } catch (Exception ex) {
@@ -39,9 +49,57 @@ public class ProductsExportRunner implements CommandLineRunner {
             }
         }
         if (triggered) {
-            log.info("productsExport task finished (categoryId={}); exiting with code {}", categoryId, exitCode);
+            log.info("productsExport task finished (categoryId={}, published={}, createdAfter={}, updatedBefore={}); exiting with code {}", categoryId, published, createdAfter, updatedBefore, exitCode);
             System.exit(exitCode);
         }
+    }
+
+    private Map<String, String> parseOptions(String[] args, int commandIndex, String commandToken) {
+        Map<String, String> options = new HashMap<>();
+        extractInlineOptions(commandToken, options);
+        for (int i = commandIndex + 1; i < args.length; i++) {
+            String token = args[i];
+            if (!token.startsWith("--")) {
+                if (token.contains("Export")) {
+                    break; // likely next task
+                }
+                continue; // ignore non-flag tokens
+            }
+            putIfPresent(token, options);
+        }
+        return options;
+    }
+
+    private void extractInlineOptions(String commandToken, Map<String, String> options) {
+        String remainder = commandToken.replaceFirst("^productsExport", "");
+        remainder = remainder.replaceFirst("^[,:]", "");
+        if (remainder.isBlank()) {
+            return;
+        }
+        for (String token : remainder.split(",")) {
+            if (!token.startsWith("--")) {
+                token = "--" + token; // allow legacy inline usage
+            }
+            putIfPresent(token, options);
+        }
+    }
+
+    private void putIfPresent(String token, Map<String, String> options) {
+        if (token == null || !token.startsWith("--") || !token.contains("=")) {
+            return;
+        }
+        String cleaned = token.replaceFirst("^--", "");
+        String[] parts = cleaned.split("=", 2);
+        if (parts.length == 2 && !parts[0].isBlank()) {
+            options.put(parts[0].trim(), parts[1].trim());
+        }
+    }
+
+    private Boolean parseBoolean(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return Boolean.parseBoolean(raw.trim());
     }
 
     private String parseCategoryId(String arg, String... args) {
