@@ -30,7 +30,7 @@ public class ProductsUpdateService {
         this.objectMapper = objectMapper;
     }
 
-    public enum UpdateMode { FULL, SKIP_PRODUCT_MASTER_DATA }
+    public enum UpdateMode {FULL, SKIP_PRODUCT_MASTER_DATA}
 
     public Mono<Void> upsertProducts(List<Product> products) {
         return upsertProducts(products, UpdateMode.FULL);
@@ -51,68 +51,88 @@ public class ProductsUpdateService {
             int total = slice.size();
             log.info("Upserting {} products (start={} limit={} of {}) with concurrency=5", total, safeStart, safeLimit, products.size());
             return Flux.fromIterable(slice)
-                .flatMap(p -> upsertSingle(p, mode, processed, total, updated, created), 3)
-                .then()
-                .doFinally(sig -> log.info("ERP upsert finished: total={} updated={} created={}", total, updated.get(), created.get()));
+                    .flatMap(p -> upsertSingle(p, mode, processed, total, updated, created), 4)
+                    .then()
+                    .doFinally(sig -> log.info("ERP upsert finished: total={} updated={} created={}", total, updated.get(), created.get()));
         });
     }
 
-    public record VariantInfo(String variantId, String productId) {}
+    public record VariantInfo(String variantId, String productId, Boolean published) {
+    }
 
     private Mono<Void> upsertSingle(Product product, UpdateMode mode, AtomicInteger processed, int total, AtomicInteger updated, AtomicInteger created) {
         log.info("Upsert starting for sku={} name={}", product.getSku(), product.getName());
         return findVariantBySku(product.getSku())
-            .materialize()
-            .flatMap(signal -> {
-                if (signal.hasValue()) {
-                    VariantInfo info = signal.get();
-                    log.info("Existing variant found for sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId());
-                    return updateExisting(product, info, mode)
-                        .then(Mono.fromRunnable(updated::incrementAndGet))
-                        .then(Mono.fromRunnable(() -> log.info("Upserted existing sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId())));
-                }
-                if (signal.isOnComplete()) {
-                    log.info("No existing variant for sku={}, creating new", product.getSku());
-                    return createNew(product)
-                        .then(Mono.fromRunnable(created::incrementAndGet))
-                        .then(Mono.fromRunnable(() -> log.info("Created new sku={} name={}", product.getSku(), product.getName())));
-                }
-                if (signal.isOnError()) {
-                    return Mono.error(signal.getThrowable());
-                }
-                return Mono.empty();
-            })
-            .doFinally(sig -> {
-                int done = processed.incrementAndGet();
-                if (done % 5 == 0 || done == total) {
-                    log.info("ERP upsert progress: {}/{}", done, total);
-                }
-            })
-            .doOnError(ex -> log.error("Upsert failed for sku={}", product.getSku(), ex))
-            .then();
+                .materialize()
+                .flatMap(signal -> {
+                    if (signal.hasValue()) {
+                        VariantInfo info = signal.get();
+                        boolean skipUnpublishedZeroQty = product.getAvailableQuantity() != null
+                            && product.getAvailableQuantity() == 0
+                            && Boolean.FALSE.equals(info.published());
+                        if (skipUnpublishedZeroQty) {
+                            return Mono.fromRunnable(() -> log.info("Skipping upsert for sku={} name={} (existing unpublished with zero quantity)", product.getSku(), product.getName()));
+                        }
+                        log.info("Existing variant found for sku={} variantId={} productId={} published={}", product.getSku(), info.variantId(), info.productId(), info.published());
+                        return updateExisting(product, info, mode)
+                                .then(Mono.fromRunnable(updated::incrementAndGet))
+                                .then(Mono.fromRunnable(() -> log.info("Upserted existing sku={} variantId={} productId={}", product.getSku(), info.variantId(), info.productId())));
+                    }
+                    if (signal.isOnComplete()) {
+                        log.info("No existing variant for sku={}, creating new", product.getSku());
+                        return createNew(product)
+                                .then(Mono.fromRunnable(created::incrementAndGet))
+                                .then(Mono.fromRunnable(() -> log.info("Created new sku={} name={}", product.getSku(), product.getName())));
+                    }
+                    if (signal.isOnError()) {
+                        return Mono.error(signal.getThrowable());
+                    }
+                    return Mono.empty();
+                })
+                .doFinally(sig -> {
+                    int done = processed.incrementAndGet();
+                    if (done % 5 == 0 || done == total) {
+                        log.info("ERP upsert progress: {}/{}", done, total);
+                    }
+                })
+                .doOnError(ex -> log.error("Upsert failed for sku={}", product.getSku(), ex))
+                .then();
     }
 
     private Mono<VariantInfo> findVariantBySku(String sku) {
         String query = helper.buildProductVariantQuery();
         Map<String, Object> variables = Map.of("sku", sku);
         return apiClient.mutation(query, variables)
-            .flatMap(body -> {
-                try {
-                    JsonNode root = objectMapper.readTree(body);
-                    JsonNode variant = root.path("data").path("productVariant");
-                    if (variant.isMissingNode() || variant.isNull()) {
-                        return Mono.empty();
+                .flatMap(body -> {
+                    try {
+                        JsonNode root = objectMapper.readTree(body);
+                        JsonNode variant = root.path("data").path("productVariant");
+                        if (variant.isMissingNode() || variant.isNull()) {
+                            return Mono.empty();
+                        }
+                        String variantId = variant.path("id").asText(null);
+                        String productId = variant.path("product").path("id").asText(null);
+                        Boolean published = null;
+                        JsonNode listings = variant.path("product").path("channelListings");
+                        if (listings.isArray()) {
+                            for (JsonNode listing : listings) {
+                                if (listing.path("isPublished").isBoolean() && listing.path("isPublished").asBoolean()) {
+                                    published = true;
+                                    break;
+                                }
+                                if (published == null && listing.path("isPublished").isBoolean()) {
+                                    published = false;
+                                }
+                            }
+                        }
+                        if (variantId == null) {
+                            return Mono.empty();
+                        }
+                        return Mono.just(new VariantInfo(variantId, productId, published));
+                    } catch (Exception e) {
+                        return Mono.error(e);
                     }
-                    String variantId = variant.path("id").asText(null);
-                    String productId = variant.path("product").path("id").asText(null);
-                    if (variantId == null) {
-                        return Mono.empty();
-                    }
-                    return Mono.just(new VariantInfo(variantId, productId));
-                } catch (Exception e) {
-                    return Mono.error(e);
-                }
-            });
+                });
     }
 
     private Mono<Void> updateExisting(Product product, VariantInfo info, UpdateMode mode) {
@@ -124,15 +144,15 @@ public class ProductsUpdateService {
             chain = updateProduct(product, resolvedProductId);
         }
         return chain
-            .then(updateProductChannelListing(product, resolvedProductId))
-            .then(updateVariantChannelListing(product, info.variantId()))
-            .then(updateVariantStocks(product, info.variantId()));
+                .then(updateProductChannelListing(product, resolvedProductId))
+                .then(updateVariantChannelListing(product, info.variantId()))
+                .then(updateVariantStocks(product, info.variantId()));
     }
 
     private Mono<Void> updateProduct(Product product, String productId) {
         String mutation = "mutation ProductUpdate($id: ID!, $input: ProductInput!) {" +
-            "  productUpdate(id: $id, input: $input) { product { id } errors { field message } }" +
-            "}";
+                "  productUpdate(id: $id, input: $input) { product { id } errors { field message } }" +
+                "}";
 
         Map<String, Object> input = helper.buildProductInputObject(product);
 
@@ -149,8 +169,8 @@ public class ProductsUpdateService {
             return Mono.empty();
         }
         String mutation = "mutation productChannelListingUpdate($id: ID!, $input: ProductChannelListingUpdateInput!) {" +
-            "  productChannelListingUpdate(id: $id, input: $input) { product { id } errors { field message } }" +
-            "}";
+                "  productChannelListingUpdate(id: $id, input: $input) { product { id } errors { field message } }" +
+                "}";
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("id", productId);
@@ -164,8 +184,8 @@ public class ProductsUpdateService {
             return Mono.empty();
         }
         String mutation = "mutation productVariantChannelListingUpdate($id: ID!, $input: [ProductVariantChannelListingAddInput!]!) {" +
-            "  productVariantChannelListingUpdate(id: $id, input: $input) { variant { id } errors { field message } }" +
-            "}";
+                "  productVariantChannelListingUpdate(id: $id, input: $input) { variant { id } errors { field message } }" +
+                "}";
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("id", variantId);
@@ -179,8 +199,8 @@ public class ProductsUpdateService {
             return Mono.empty();
         }
         String mutation = "mutation productVariantStocksUpdate($variantId: ID!, $stocks: [StockInput!]!) {" +
-            "  productVariantStocksUpdate(variantId: $variantId, stocks: $stocks) { productVariant { id } errors { field message } }" +
-            "}";
+                "  productVariantStocksUpdate(variantId: $variantId, stocks: $stocks) { productVariant { id } errors { field message } }" +
+                "}";
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("variantId", variantId);
@@ -191,45 +211,45 @@ public class ProductsUpdateService {
 
     private Mono<Void> createNew(Product product) {
         return createProduct(product)
-            .flatMap(productId -> updateProductChannelListing(product, productId)
-                .then(createVariant(product, productId)
-                    .flatMap(variantId -> updateVariantChannelListing(product, variantId)
-                        .then(updateVariantStocks(product, variantId))
-                    )
+                .flatMap(productId -> updateProductChannelListing(product, productId)
+                        .then(createVariant(product, productId)
+                                .flatMap(variantId -> updateVariantChannelListing(product, variantId)
+                                        .then(updateVariantStocks(product, variantId))
+                                )
+                        )
                 )
-            )
-            .doOnError(ex -> log.error("Create flow failed for sku={} reason={}", product.getSku(), ex.getMessage(), ex))
-            .then();
+                .doOnError(ex -> log.error("Create flow failed for sku={} reason={}", product.getSku(), ex.getMessage(), ex))
+                .then();
     }
 
     private Mono<String> createProduct(Product product) {
         String mutation = "mutation ProductCreate($input: ProductCreateInput!) {" +
-            "  productCreate(input: $input) { product { id variants { id } } errors { field message } }" +
-            "}";
+                "  productCreate(input: $input) { product { id variants { id } } errors { field message } }" +
+                "}";
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("input", helper.buildProductCreateInputObject(product));
 
         return apiClient.mutation(mutation, variables)
-            .flatMap(body -> {
-                try {
-                    JsonNode root = objectMapper.readTree(body);
-                    JsonNode productNode = root.path("data").path("productCreate").path("product");
-                    String productId = productNode.path("id").asText(null);
-                    if (productId == null) {
-                        return Mono.error(new IllegalStateException("productCreate did not return product id"));
+                .flatMap(body -> {
+                    try {
+                        JsonNode root = objectMapper.readTree(body);
+                        JsonNode productNode = root.path("data").path("productCreate").path("product");
+                        String productId = productNode.path("id").asText(null);
+                        if (productId == null) {
+                            return Mono.error(new IllegalStateException("productCreate did not return product id"));
+                        }
+                        return Mono.just(productId);
+                    } catch (Exception e) {
+                        return Mono.error(e);
                     }
-                    return Mono.just(productId);
-                } catch (Exception e) {
-                    return Mono.error(e);
-                }
-            });
+                });
     }
 
     private Mono<String> createVariant(Product product, String productId) {
         String mutation = "mutation ProductVariantCreate($input: ProductVariantCreateInput!) {" +
-            "  productVariantCreate(input: $input) { productVariant { id } errors { field message } }" +
-            "}";
+                "  productVariantCreate(input: $input) { productVariant { id } errors { field message } }" +
+                "}";
 
         Map<String, Object> variantInput = helper.buildProductVariantCreateInput(product);
         variantInput.put("product", productId);
@@ -238,18 +258,18 @@ public class ProductsUpdateService {
         variables.put("input", variantInput);
 
         return apiClient.mutation(mutation, variables)
-            .flatMap(body -> {
-                try {
-                    JsonNode root = objectMapper.readTree(body);
-                    String variantId = root.path("data").path("productVariantCreate").path("productVariant").path("id").asText(null);
-                    if (variantId == null) {
-                        return Mono.error(new IllegalStateException("productVariantCreate did not return variant id"));
+                .flatMap(body -> {
+                    try {
+                        JsonNode root = objectMapper.readTree(body);
+                        String variantId = root.path("data").path("productVariantCreate").path("productVariant").path("id").asText(null);
+                        if (variantId == null) {
+                            return Mono.error(new IllegalStateException("productVariantCreate did not return variant id"));
+                        }
+                        log.info("Variant id={} created for productSKU={}", variantId, product.getSku());
+                        return Mono.just(variantId);
+                    } catch (Exception e) {
+                        return Mono.error(e);
                     }
-                    log.info("Variant id={} created for productSKU={}", variantId, product.getSku());
-                    return Mono.just(variantId);
-                } catch (Exception e) {
-                    return Mono.error(e);
-                }
-            });
+                });
     }
 }
