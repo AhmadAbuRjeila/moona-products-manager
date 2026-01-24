@@ -26,19 +26,23 @@ public class StaleOosUnpublishJob {
     }
 
     public Mono<String> run(String updatedBeforeIso, int pageSize, boolean dryRun) {
+        return run(updatedBeforeIso, pageSize, dryRun, null);
+    }
+
+    public Mono<String> run(String updatedBeforeIso, int pageSize, boolean dryRun, Boolean published) {
         String cutoff = updatedBeforeIso != null && !updatedBeforeIso.isBlank()
                 ? updatedBeforeIso
                 : productsExportService.defaultUpdatedBeforeIso(14);
         int effectivePageSize = pageSize > 0 ? pageSize : exportProperties.getPageSize();
 
-        log.info("Stale OOS unpublish starting (channel={}, cutoff={}, pageSize={}, dryRun={})",
-                exportProperties.getChannel(), cutoff, effectivePageSize, dryRun);
+        log.info("Stale OOS unpublish starting (channel={}, cutoff={}, pageSize={}, dryRun={}, published={})",
+                exportProperties.getChannel(), cutoff, effectivePageSize, dryRun, published);
 
-        return productsExportService.fetchAllProducts(null, cutoff)
+        return productsExportService.fetchAllProducts(null, cutoff, null, published)
                 .map(this::summarizeAndFilter)
                 .flatMap(summary -> {
-                    log.info("staleOosUnpublish.summary fetched={} unpublishedAlready={} candidates={} dryRun={}",
-                            summary.totalFetched, summary.alreadyUnpublished, summary.candidates.size(), dryRun);
+                    log.info("staleOosUnpublish.summary fetched={} unpublishedAlready={} candidates={} dryRun={} published={}",
+                            summary.totalFetched, summary.alreadyUnpublished, summary.candidates.size(), dryRun, published);
                     if (dryRun || summary.candidates.isEmpty()) {
                         return Mono.just("Dry-run: would unpublish " + summary.candidates.size() + " products (fetched=" + summary.totalFetched + ")");
                     }

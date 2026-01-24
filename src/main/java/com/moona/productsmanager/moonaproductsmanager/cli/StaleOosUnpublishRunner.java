@@ -22,6 +22,7 @@ public class StaleOosUnpublishRunner implements CommandLineRunner {
         boolean dryRun = false;
         String updatedBefore = null;
         int pageSize = 0;
+        Boolean published = null;
         int exitCode = 0;
 
         for (int i = 0; i < args.length; i++) {
@@ -36,12 +37,16 @@ public class StaleOosUnpublishRunner implements CommandLineRunner {
                 try {
                     pageSize = Integer.parseInt(args[i + 1]);
                 } catch (NumberFormatException ignored) { }
+            } else if ("--published".equalsIgnoreCase(arg) && i + 1 < args.length) {
+                try {
+                    published = Boolean.parseBoolean(args[i + 1]);
+                } catch (Exception ignored) { }
             }
         }
 
         if (triggered) {
             try {
-                job.run(updatedBefore, pageSize, dryRun)
+                job.run(updatedBefore, pageSize, dryRun, published)
                     .doOnSuccess(msg -> log.info(msg))
                     .block();
             } catch (Exception ex) {
@@ -53,4 +58,3 @@ public class StaleOosUnpublishRunner implements CommandLineRunner {
         }
     }
 }
-
