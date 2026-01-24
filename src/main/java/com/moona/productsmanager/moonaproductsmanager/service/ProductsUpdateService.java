@@ -272,4 +272,41 @@ public class ProductsUpdateService {
                     }
                 });
     }
+
+    public Mono<Void> updateRatings(List<Product> products) {
+        if (products == null || products.isEmpty()) {
+            return Mono.empty();
+        }
+        AtomicInteger processed = new AtomicInteger();
+        int total = products.size();
+        log.info("Starting rating-only update for {} products", total);
+        return Flux.fromIterable(products)
+            .flatMap(this::updateSingleRating, 4)
+            .doOnNext(p -> {
+                int done = processed.incrementAndGet();
+                if (done % 10 == 0 || done == total) {
+                    log.info("Rating update progress: {}/{} (last id={} sku={} rating={})", done, total, p.getId(), p.getSku(), p.getRating());
+                }
+            })
+            .then()
+            .doFinally(sig -> log.info("Rating-only update finished: total={} processed={} signal={}", total, processed.get(), sig));
+    }
+
+    private Mono<Product> updateSingleRating(Product product) {
+        if (product.getId() == null || product.getRating() == null) {
+            log.warn("Skipping rating update for product without id/rating sku={} id={} rating={}", product.getSku(), product.getId(), product.getRating());
+            return Mono.just(product);
+        }
+        String mutation = "mutation ProductUpdateRating($id: ID!, $input: ProductInput!) {" +
+            "  productUpdate(id: $id, input: $input) { product { id rating } errors { field message } }" +
+            "}";
+        Map<String, Object> variables = new HashMap<>();
+        Map<String, Object> input = new HashMap<>();
+        input.put("rating", product.getRating());
+        variables.put("id", product.getId());
+        variables.put("input", input);
+        return apiClient.mutation(mutation, variables)
+            .then(Mono.just(product))
+            .doOnError(ex -> log.error("Failed to update rating for id={} sku={} rating={}", product.getId(), product.getSku(), product.getRating(), ex));
+    }
 }

@@ -17,13 +17,16 @@ public class CategoryProductsRatingService {
     private final ProductsExportService productsExportService;
     private final CategoryRatingAssigner categoryRatingAssigner;
     private final ExcelWriter excelWriter;
+    private final ProductsUpdateService productsUpdateService;
 
     public CategoryProductsRatingService(ProductsExportService productsExportService,
                                          CategoryRatingAssigner categoryRatingAssigner,
-                                         ExcelWriter excelWriter) {
+                                         ExcelWriter excelWriter,
+                                         ProductsUpdateService productsUpdateService) {
         this.productsExportService = productsExportService;
         this.categoryRatingAssigner = categoryRatingAssigner;
         this.excelWriter = excelWriter;
+        this.productsUpdateService = productsUpdateService;
     }
 
     public Mono<String> exportCategoryWithRatings(String categoryId, double minRating, double maxRating,
@@ -37,7 +40,7 @@ public class CategoryProductsRatingService {
             categoryId, minRating, maxRating, createdAfterIso, updatedBeforeIso, published);
         return productsExportService.fetchAllProducts(createdAfterIso, updatedBeforeIso, categoryId, published)
             .map(products -> categoryRatingAssigner.sortAndAssignRatings(products, minRating, maxRating))
-            .flatMap(sorted -> writeExport(sorted, categoryId));
+            .flatMap(sorted -> productsUpdateService.updateRatings(sorted).then(writeExport(sorted, categoryId)));
     }
 
     public Mono<String> exportCategoryWithRatings(String categoryId, double minRating, double maxRating) {
