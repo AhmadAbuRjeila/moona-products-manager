@@ -237,7 +237,8 @@ public class ProductsUpdateService {
                         JsonNode productNode = root.path("data").path("productCreate").path("product");
                         String productId = productNode.path("id").asText(null);
                         if (productId == null) {
-                            return Mono.error(new IllegalStateException("productCreate did not return product id"));
+                            log.info("******* Full response {}",root);
+                            return Mono.error(new IllegalStateException("productCreate did not return product id response"));
                         }
                         return Mono.just(productId);
                     } catch (Exception e) {
