@@ -40,6 +40,12 @@ public class ErpProductMapper {
             }
             LinkedHashMap<String, Object> row = objectMapper.convertValue(rowNode, LinkedHashMap.class);
 
+            String name = coerceString(findValue(row, "item name"));
+            if (name != null && name.trim().equals("عربي بكيت ونستون")) {
+                log.info("Skipping (blocked name): {} | sku={} ", name, coerceString(findValue(row, "barcode")));
+                continue;
+            }
+
             Integer qty = coerceInteger(firstNonNull(
                 findValue(row, "qty"),
                 findValue(row, "quantity"),
@@ -64,12 +70,12 @@ public class ErpProductMapper {
 
             String barcode = coerceString(findValue(row, "barcode"));
             if (barcode == null || barcode.isEmpty()) {
-                log.info("Skipping (no barcode): {}", coerceString(findValue(row, "item name")));
+                log.info("Skipping (no barcode): {}", name);
                 continue;
             }
 
             Product p = new Product();
-            p.setName(coerceString(findValue(row, "item name")));
+            p.setName(name);
             p.setCategoryName(category);
             p.setCategoryId(erpProperties.getDefaultCategoryId());
             p.setSku(barcode);
@@ -151,6 +157,11 @@ public class ErpProductMapper {
         Double price = getDoubleAt(array, 6);
         Integer qty = getIntegerAt(array, 7);
         String category = getStringAt(array, 3); // optional
+
+        if (name != null && name.trim().equals("عربي بكيت ونستون")) {
+            log.info("Skipping (blocked name array row): {} | sku={}", name, barcode);
+            return null;
+        }
 
         if (qty != null && qty < 5) {
             log.info("Adjusting qty<5 to zero array row: {} | sku={} | qty={}", name, barcode, qty);
