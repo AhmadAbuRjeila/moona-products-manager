@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +66,7 @@ public class ProductsUpdateService {
                 .flatMap(signal -> {
                     if (signal.hasValue()) {
                         VariantInfo info = signal.get();
+                        enforceMinQuantity(product);
                         boolean skipUnpublishedZeroQty = product.getAvailableQuantity() != null
                             && product.getAvailableQuantity() == 0
                             && Boolean.FALSE.equals(info.published());
@@ -210,6 +210,7 @@ public class ProductsUpdateService {
     }
 
     private Mono<Void> createNew(Product product) {
+        enforceMinQuantity(product);
         return createProduct(product)
                 .flatMap(productId -> updateProductChannelListing(product, productId)
                         .then(createVariant(product, productId)
@@ -309,5 +310,30 @@ public class ProductsUpdateService {
         return apiClient.mutation(mutation, variables)
             .then(Mono.just(product))
             .doOnError(ex -> log.error("Failed to update rating for id={} sku={} rating={}", product.getId(), product.getSku(), product.getRating(), ex));
+    }
+
+    private void enforceMinQuantity(Product product) {
+        if (product == null) {
+            return;
+        }
+        Integer qty = product.getAvailableQuantity();
+        if (qty == null) {
+            return;
+        }
+        int minQty = resolveMinQty(product.getCategoryId());
+        if (qty < minQty) {
+            log.info("Adjusting qty to min {} for sku={} categoryId={}", minQty, product.getSku(), product.getCategoryId());
+            product.setAvailableQuantity(0);
+        }
+    }
+
+    private int resolveMinQty(String categoryId) {
+        if (categoryId == null) {
+            return 5;
+        }
+        if (categoryId.equals("Q2F0ZWdvcnk6MzQ=") || categoryId.equals("Q2F0ZWdvcnk6Mg==")) {
+            return 2;
+        }
+        return 5;
     }
 }

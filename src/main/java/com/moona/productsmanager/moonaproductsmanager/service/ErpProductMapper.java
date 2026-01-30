@@ -51,15 +51,15 @@ public class ErpProductMapper {
                 findValue(row, "quantity"),
                 findValue(row, "Qty")
             ));
-            if (qty != null && qty < 5) {
-                log.info("Adjusting qty<5 to zero: {} | sku={} | qty={}", coerceString(findValue(row, "item name")), coerceString(findValue(row, "barcode")), qty);
-                qty = 0;
-            }
 
             Double price = coerceDouble(findValue(row, "standard selling price"));
             if (price == null) {
                 log.info("Skipping (no price): {} | sku={}", coerceString(findValue(row, "item name")), coerceString(findValue(row, "barcode")));
                 continue;
+            }
+            if (price < 1.0d) {
+                log.info("Adjusting qty to zero because price<1: {} | sku={} | price={}", name, coerceString(findValue(row, "barcode")), price);
+                qty = 0;
             }
 
             String category = coerceString(findValue(row, "item group"));
@@ -163,13 +163,13 @@ public class ErpProductMapper {
             return null;
         }
 
-        if (qty != null && qty < 5) {
-            log.info("Adjusting qty<5 to zero array row: {} | sku={} | qty={}", name, barcode, qty);
-            qty = 0;
-        }
         if (price == null) {
             log.info("Skipping (no price array row): {} | sku={}", name, barcode);
             return null;
+        }
+        if (price < 1.0d) {
+            log.info("Adjusting qty to zero because price<1 array row: {} | sku={} | price={}", name, barcode, price);
+            qty = 0;
         }
         if (barcode == null || barcode.isBlank()) {
             log.info("Skipping (no barcode array row): {}", name);
